@@ -13,9 +13,11 @@
 
 # Production & Local Environment Files
 .env
+.env.production
 .env*.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 !.env.example
 
