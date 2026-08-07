@@ -54,8 +54,8 @@ export default function AdminPage() {
     setGalleryLoading(true);
     const BUCKET = 'VishakaHu_Gallery';
     try {
-      const { data: orgFiles } = await supabase.storage.from(BUCKET).list('orginl', { limit: 100 });
-      const { data: rootFiles } = await supabase.storage.from(BUCKET).list('', { limit: 100 });
+      const { data: orgFiles } = await supabase.storage.from(BUCKET).list('orginl', { limit: 1000 });
+      const { data: rootFiles } = await supabase.storage.from(BUCKET).list('', { limit: 1000 });
 
       const fileMap = new Map<string, GalleryPhoto>();
 
