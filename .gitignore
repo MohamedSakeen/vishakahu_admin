@@ -20,6 +20,7 @@
 .env.production
 .env.production.local
 !.env.example
+.env.local
 
 # OS & IDE Files
 .DS_Store
