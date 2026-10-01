@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase, StudentRegistration } from '../lib/supabase';
 import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, KeyRound, ShieldAlert, Mail, Plus, Pin } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
+import Image from 'next/image';
 interface GalleryImage {
   id: string;
   public_id: string;
@@ -419,13 +420,16 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       {/* Top Header */}
       <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 mb-8 border-b border-slate-800">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-            Vishakahu Admin Portal
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Manage student registrations & gallery media files
-          </p>
+        <div className="flex items-center gap-4">
+          <Image src="/icon1.png" alt="Vishakahu Admin Logo" width={48} height={48} className="object-contain" />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+              Vishakahu Admin Portal
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Manage student registrations & gallery media files
+            </p>
+          </div>
         </div>
 
         {/* Tab Navigation & Lock Action */}
