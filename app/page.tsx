@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase, StudentRegistration } from '../lib/supabase';
-import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, KeyRound, ShieldAlert, Mail, Plus, Pin } from 'lucide-react';
+import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, ShieldAlert, Plus, Pin, X, MoreVertical } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
-import Image from 'next/image';
+
 interface GalleryImage {
   id: string;
   public_id: string;
@@ -38,11 +38,22 @@ export default function AdminPage() {
   const [galleryFilter, setGalleryFilter] = useState('all');
   const [galleryLoading, setGalleryLoading] = useState(true);
   const [uploadCategory, setUploadCategory] = useState<string>('dojo');
-  const uploadCategoryRef = React.useRef(uploadCategory);
+  const uploadCategoryRef = useRef(uploadCategory);
   useEffect(() => {
     uploadCategoryRef.current = uploadCategory;
   }, [uploadCategory]);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Gallery action sheet state
+  const [actionSheetPhoto, setActionSheetPhoto] = useState<GalleryImage | null>(null);
+
+  // Auto-dismiss status messages
+  useEffect(() => {
+    if (statusMsg) {
+      const timer = setTimeout(() => setStatusMsg(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMsg]);
 
   // Check initial session on mount
   useEffect(() => {
@@ -167,10 +178,10 @@ export default function AdminPage() {
   // Loading state during auth check
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-[#060305] flex items-[#center] justify-center text-white">
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <div className="w-10 h-10 border-2 border-red-600/20 border-t-red-600 rounded-full animate-spin mb-4" />
-          <p className="text-slate-400 text-xs uppercase tracking-widest font-mono">Verifying Security Session...</p>
+          <div className="w-8 h-8 border-2 border-neutral-700 border-t-white rounded-full animate-spin mb-4" />
+          <p className="text-neutral-500 text-xs uppercase tracking-widest">Verifying Session...</p>
         </div>
       </div>
     );
@@ -179,29 +190,24 @@ export default function AdminPage() {
   // Unauthenticated Login Screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#060305] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Background Kanji Watermark */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[20rem] font-serif opacity-[0.02] text-white select-none pointer-events-none">
-          師
-        </div>
-
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 shadow-2xl relative z-10 backdrop-blur-md">
+      <div className="min-h-[100dvh] bg-neutral-950 text-neutral-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-full bg-red-950/60 border border-red-800/40 text-red-500 flex items-center justify-center mx-auto mb-4 shadow-inner">
-              <Lock size={24} />
+            <div className="w-12 h-12 rounded-full bg-neutral-800 border border-neutral-700 text-white flex items-center justify-center mx-auto mb-4">
+              <Lock size={20} />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white uppercase font-serif">
-              Vishakahu <span className="text-amber-500">Admin</span>
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Vishakahu Admin
             </h1>
-            <p className="text-slate-400 text-xs uppercase tracking-widest mt-1">
-              Restricted Access · Authorized Personnel Only
+            <p className="text-neutral-500 text-xs mt-1.5">
+              Restricted Access
             </p>
           </div>
 
           {/* Error Message Alert */}
           {authError && (
-            <div className="mb-6 p-3 rounded-lg bg-red-950/50 border border-red-800/60 text-red-400 text-xs flex items-center gap-2">
-              <ShieldAlert size={16} className="shrink-0 text-red-500" />
+            <div className="mb-5 p-3 rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-300 text-xs flex items-center gap-2">
+              <ShieldAlert size={16} className="shrink-0 text-neutral-400" />
               <span>{authError}</span>
             </div>
           )}
@@ -209,7 +215,7 @@ export default function AdminPage() {
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+              <label className="block text-xs uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">
                 Username
               </label>
               <input
@@ -218,12 +224,12 @@ export default function AdminPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Admin username"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-colors text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-white transition-colors text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+              <label className="block text-xs uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">
                 Password
               </label>
               <input
@@ -232,22 +238,22 @@ export default function AdminPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-colors text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-white transition-colors text-sm"
               />
             </div>
 
             <button
               type="submit"
               disabled={authLoading || !username || !password}
-              className="w-full py-3.5 bg-red-700 hover:bg-red-600 text-white font-bold uppercase tracking-wider text-xs rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              className="w-full min-h-[48px] bg-white hover:bg-neutral-200 text-black font-bold uppercase tracking-wider text-xs rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-2 mt-2 active:scale-[0.98]"
             >
               {authLoading ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
 
-          <div className="mt-8 text-center pt-4 border-t border-slate-800/80">
-            <span className="text-[0.65rem] text-slate-500 uppercase tracking-widest font-mono">
-              Protected by Vishakahu Security Guard
+          <div className="mt-8 text-center pt-4 border-t border-neutral-800">
+            <span className="text-[0.6rem] text-neutral-600 uppercase tracking-widest">
+              Vishakahu Security
             </span>
           </div>
         </div>
@@ -309,7 +315,7 @@ export default function AdminPage() {
 
         setStatusMsg({
           type: 'success',
-          text: `Successfully uploaded to ${uploadCategoryRef.current}!`
+          text: `Uploaded to ${uploadCategoryRef.current}!`
         });
         
         // Refresh gallery
@@ -333,6 +339,7 @@ export default function AdminPage() {
 
       setPhotos(prev => prev.filter(p => p.id !== id));
       setStatusMsg({ type: 'success', text: `Deleted photo successfully.` });
+      setActionSheetPhoto(null);
     } catch (err) {
       alert('Delete failed: ' + String(err));
     }
@@ -380,6 +387,7 @@ export default function AdminPage() {
       
       setPhotos(prev => prev.map(p => p.id === id ? { ...p, category: newCategory } : p));
       setStatusMsg({ type: 'success', text: `Photo category updated.` });
+      setActionSheetPhoto(null);
     } catch (err) {
       setStatusMsg({ type: 'error', text: `Failed to update photo category: ${String(err)}` });
     }
@@ -400,6 +408,7 @@ export default function AdminPage() {
       if (error) throw new Error(error.message);
       
       setStatusMsg({ type: 'success', text: `Photo ${!currentStatus ? 'pinned to top' : 'unpinned'}.` });
+      setActionSheetPhoto(null);
       fetchGalleryPhotos();
     } catch (err) {
       setStatusMsg({ type: 'error', text: `Failed to update pin status: ${String(err)}` });
@@ -417,170 +426,206 @@ export default function AdminPage() {
     : photos.filter(p => p.category === galleryFilter);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
-      {/* Top Header */}
-      <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 mb-8 border-b border-slate-800">
-        <div className="flex items-center gap-4">
-          <Image src="/icon1.png" alt="Vishakahu Admin Logo" width={48} height={48} className="object-contain" />
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-              Vishakahu Admin Portal
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Manage student registrations & gallery media files
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
 
-        {/* Tab Navigation & Lock Action */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+      {/* ─── Sticky Header ─── */}
+      <header className="sticky top-0 z-40 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          {/* Top row: Title + Lock */}
+          <div className="flex items-center justify-between h-14">
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-white">
+              Vishakahu Admin
+            </h1>
+            <button
+              onClick={handleLogout}
+              title="Lock Admin Session"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg transition-colors active:scale-95"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">Lock</span>
+            </button>
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex gap-1 pb-2">
             <button
               onClick={() => setActiveTab('registrations')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${
                 activeTab === 'registrations'
-                  ? 'bg-red-700 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-white text-black'
+                  : 'text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800'
               }`}
             >
               <Users size={16} />
-              Registrations ({registrations.length})
+              Students ({registrations.length})
             </button>
             <button
               onClick={() => setActiveTab('gallery')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${
                 activeTab === 'gallery'
-                  ? 'bg-red-700 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-white text-black'
+                  : 'text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800'
               }`}
             >
               <ImageIcon size={16} />
               Gallery ({photos.length})
             </button>
           </div>
-
-          <button
-            onClick={handleLogout}
-            title="Lock Admin Session"
-            className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-red-400 bg-red-950/40 hover:bg-red-900/60 border border-red-800/50 rounded-lg transition-colors"
-          >
-            <LogOut size={15} />
-            Lock Admin
-          </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto">
+      {/* ─── Main Content ─── */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+
         {/* Status Alert Banner */}
         {statusMsg && (
           <div
-            className={`mb-6 p-4 rounded-lg flex items-center justify-between text-sm ${
+            className={`mb-4 p-3 rounded-lg flex items-center justify-between text-sm border-l-4 ${
               statusMsg.type === 'success'
-                ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
-                : 'bg-rose-950/60 border border-rose-800 text-rose-300'
+                ? 'bg-neutral-900 border-l-white text-neutral-200'
+                : 'bg-neutral-900 border-l-neutral-500 text-neutral-300'
             }`}
           >
             <div className="flex items-center gap-2">
-              {statusMsg.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-              <span>{statusMsg.text}</span>
+              {statusMsg.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+              <span className="text-xs sm:text-sm">{statusMsg.text}</span>
             </div>
-            <button onClick={() => setStatusMsg(null)} className="text-xs underline">Dismiss</button>
+            <button onClick={() => setStatusMsg(null)} className="text-neutral-500 hover:text-white p-1">
+              <X size={14} />
+            </button>
           </div>
         )}
 
-        {/* TAB 1: Student Registrations */}
+        {/* ─── TAB 1: Student Registrations ─── */}
         {activeTab === 'registrations' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div className="space-y-4">
+
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <input
                 type="text"
-                placeholder="Search student name, email, or mobile..."
+                placeholder="Search name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-600 w-full sm:w-80"
+                className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600 transition-colors"
               />
-
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={fetchRegistrations}
-                  className="flex items-center gap-2 px-3 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"
+                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg transition-colors border border-neutral-800 active:scale-95"
                 >
                   <RefreshCw size={14} className={regLoading ? 'animate-spin' : ''} />
                   Refresh
                 </button>
                 <button
                   onClick={exportCSV}
-                  className="flex items-center gap-2 px-4 py-2 text-xs bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition-colors font-medium"
+                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 text-xs bg-white hover:bg-neutral-200 text-black rounded-lg transition-colors font-medium active:scale-95"
                 >
                   <Download size={14} />
-                  Export CSV
+                  Export
                 </button>
               </div>
             </div>
 
-            {/* Registrations Table */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            {/* Registrations Content */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
               {regLoading ? (
-                <div className="p-12 text-center text-slate-400">Loading registrations...</div>
-              ) : filteredRegistrations.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
-                      <tr>
-                        <th className="px-6 py-4 font-semibold">#</th>
-                        <th className="px-6 py-4 font-semibold">Full Name</th>
-                        <th className="px-6 py-4 font-semibold">Email Address</th>
-                        <th className="px-6 py-4 font-semibold">Mobile Number</th>
-                        <th className="px-6 py-4 font-semibold">Registered Date</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                      {filteredRegistrations.map((r, idx) => (
-                        <tr key={r.id || idx} className="hover:bg-slate-800/50 transition-colors">
-                          <td className="px-6 py-4 text-xs text-slate-500 font-mono">{idx + 1}</td>
-                          <td className="px-6 py-4 font-medium text-white">{r.name}</td>
-                          <td className="px-6 py-4 text-slate-300">
-                            <a href={`mailto:${r.email}`} className="hover:underline text-sky-400">{r.email}</a>
-                          </td>
-                          <td className="px-6 py-4 text-slate-300">
-                            <a href={`tel:${r.phone}`} className="hover:underline text-emerald-400">{r.phone}</a>
-                          </td>
-                          <td className="px-6 py-4 text-xs text-slate-400">
-                            {r.created_at ? new Date(r.created_at).toLocaleString() : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleDeleteRegistration(r.id)}
-                              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
-                              title="Delete Registration"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="p-12 text-center text-neutral-500">
+                  <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
+                  Loading registrations...
                 </div>
+              ) : filteredRegistrations.length > 0 ? (
+                <>
+                  {/* Desktop Table (hidden on mobile) */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-sm text-neutral-300">
+                      <thead className="bg-neutral-950 text-neutral-500 text-xs uppercase border-b border-neutral-800">
+                        <tr>
+                          <th className="px-5 py-3.5 font-semibold">#</th>
+                          <th className="px-5 py-3.5 font-semibold">Full Name</th>
+                          <th className="px-5 py-3.5 font-semibold">Email</th>
+                          <th className="px-5 py-3.5 font-semibold">Mobile</th>
+                          <th className="px-5 py-3.5 font-semibold">Registered</th>
+                          <th className="px-5 py-3.5 font-semibold text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800">
+                        {filteredRegistrations.map((r, idx) => (
+                          <tr key={r.id || idx} className="hover:bg-neutral-800/50 transition-colors">
+                            <td className="px-5 py-3.5 text-xs text-neutral-600 font-mono">{idx + 1}</td>
+                            <td className="px-5 py-3.5 font-medium text-white">{r.name}</td>
+                            <td className="px-5 py-3.5">
+                              <a href={`mailto:${r.email}`} className="text-neutral-300 hover:text-white underline underline-offset-2 decoration-neutral-700">{r.email}</a>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <a href={`tel:${r.phone}`} className="text-neutral-300 hover:text-white underline underline-offset-2 decoration-neutral-700">{r.phone}</a>
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-neutral-500">
+                              {r.created_at ? new Date(r.created_at).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                onClick={() => handleDeleteRegistration(r.id)}
+                                className="p-2 text-neutral-600 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
+                                title="Delete Registration"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards (hidden on desktop) */}
+                  <div className="md:hidden divide-y divide-neutral-800">
+                    {filteredRegistrations.map((r, idx) => (
+                      <div key={r.id || idx} className="p-4 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <p className="font-medium text-white text-sm truncate">{r.name}</p>
+                          <a
+                            href={`mailto:${r.email}`}
+                            className="block text-xs text-neutral-400 truncate active:text-white"
+                          >
+                            {r.email}
+                          </a>
+                          <a
+                            href={`tel:${r.phone}`}
+                            className="block text-xs text-neutral-400 active:text-white"
+                          >
+                            {r.phone}
+                          </a>
+                          <p className="text-[11px] text-neutral-600">
+                            {r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteRegistration(r.id)}
+                          className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-600 hover:text-white active:text-white rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : regError ? (
                 <div className="p-8 text-center">
-                  <div className="inline-flex items-center justify-center p-3 bg-amber-500/10 text-amber-400 rounded-full mb-3">
+                  <div className="inline-flex items-center justify-center p-3 bg-neutral-800 text-neutral-400 rounded-full mb-3">
                     <AlertCircle size={24} />
                   </div>
-                  <p className="text-amber-300 font-medium text-sm">Supabase Database Notice</p>
-                  <p className="text-slate-400 text-xs mt-1 max-w-md mx-auto">{regError}</p>
+                  <p className="text-neutral-300 font-medium text-sm">Database Notice</p>
+                  <p className="text-neutral-500 text-xs mt-1 max-w-md mx-auto">{regError}</p>
                   {regError.includes('student_registrations') && (
-                    <p className="text-slate-500 text-xs mt-3 bg-slate-950/80 p-3 rounded border border-slate-800 font-mono inline-block text-left">
-                      💡 Ensure table <span className="text-red-400">student_registrations</span> is created in Supabase SQL Editor:
-                      <br/>
-                      <span className="text-slate-400">CREATE TABLE student_registrations (id bigint primary key generated always as identity, name text, email text, phone text, created_at timestamptz default now());</span>
+                    <p className="text-neutral-600 text-xs mt-3 bg-neutral-950 p-3 rounded border border-neutral-800 font-mono inline-block text-left">
+                      💡 Ensure table <span className="text-white">student_registrations</span> is created in Supabase.
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="p-12 text-center text-slate-500">
+                <div className="p-12 text-center text-neutral-600">
                   No student registrations found.
                 </div>
               )}
@@ -588,106 +633,102 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* TAB 2: Gallery Management */}
+        {/* ─── TAB 2: Gallery Management ─── */}
         {activeTab === 'gallery' && (
-          <div className="space-y-6">
-            {/* Category Management & Upload Toolbar */}
-            <div className="flex flex-col lg:flex-row gap-6">
-              {/* Category Management */}
-              <div className="flex-1 bg-slate-900 p-6 rounded-xl border border-slate-800">
-                <h3 className="font-semibold text-white mb-4">Manage Categories</h3>
-                <div className="flex items-center gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="New category name"
-                    className="bg-slate-950 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-red-500 w-full"
-                  />
-                  <button
-                    onClick={handleAddCategory}
-                    disabled={!newCategoryName.trim()}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition-colors font-medium text-sm flex items-center gap-1 disabled:opacity-50 shrink-0"
-                  >
-                    <Plus size={16} /> Add
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full text-sm">
-                      <span className="text-slate-300">{cat.name}</span>
-                      <button
-                        onClick={() => handleDeleteCategory(cat.name)}
-                        className="text-slate-500 hover:text-rose-400 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  {categories.length === 0 && <span className="text-xs text-slate-500">No categories found. Add one!</span>}
-                </div>
+          <div className="space-y-4">
+
+            {/* Category Management */}
+            <div className="bg-neutral-900 p-4 sm:p-5 rounded-xl border border-neutral-800">
+              <h3 className="font-semibold text-white text-sm mb-3">Manage Categories</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="New category name"
+                  className="flex-1 bg-neutral-950 border border-neutral-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-neutral-500 transition-colors"
+                />
+                <button
+                  onClick={handleAddCategory}
+                  disabled={!newCategoryName.trim()}
+                  className="min-h-[44px] px-4 py-2 bg-white hover:bg-neutral-200 text-black rounded-lg transition-colors font-medium text-sm flex items-center gap-1 disabled:opacity-40 shrink-0 active:scale-95"
+                >
+                  <Plus size={16} /> Add
+                </button>
               </div>
-
-              {/* Upload Section */}
-              <div className="flex-1 bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-semibold text-white">Upload New Photo</h3>
-                  <p className="text-xs text-slate-400 mt-1 mb-4">
-                    Photos will be uploaded directly to Cloudinary and synchronized with the database.
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">To:</label>
-                    <select
-                      value={uploadCategory}
-                      onChange={(e) => setUploadCategory(e.target.value)}
-                      className="bg-slate-950 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-red-500 w-full"
+              <div className="flex flex-wrap gap-2">
+                {categories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-2 bg-neutral-950 border border-neutral-800 px-3 py-2 rounded-full text-sm">
+                    <span className="text-neutral-300">{cat.name}</span>
+                    <button
+                      onClick={() => handleDeleteCategory(cat.name)}
+                      className="text-neutral-600 hover:text-white active:text-white transition-colors p-0.5"
                     >
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.name}>{cat.name}</option>
-                      ))}
-                      {categories.length === 0 && <option value="dojo">dojo</option>}
-                    </select>
+                      <X size={14} />
+                    </button>
                   </div>
-                  
-                  <CldUploadWidget
-                    key={uploadCategory}
-                    uploadPreset="vishakahu_preset"
-                    onSuccess={handleCloudinaryUpload}
-                    options={{
-                      folder: `vishakahu-gallery/${uploadCategory}`,
-                      multiple: true,
-                      resourceType: 'image'
-                    }}
+                ))}
+                {categories.length === 0 && <span className="text-xs text-neutral-600">No categories found. Add one!</span>}
+              </div>
+            </div>
+
+            {/* Upload Section */}
+            <div className="bg-neutral-900 p-4 sm:p-5 rounded-xl border border-neutral-800">
+              <h3 className="font-semibold text-white text-sm">Upload New Photo</h3>
+              <p className="text-xs text-neutral-500 mt-1 mb-4">
+                Photos upload to Cloudinary and sync with the database.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <label className="text-xs text-neutral-500 font-semibold uppercase tracking-wider shrink-0">To:</label>
+                  <select
+                    value={uploadCategory}
+                    onChange={(e) => setUploadCategory(e.target.value)}
+                    className="flex-1 bg-neutral-950 border border-neutral-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-neutral-500"
                   >
-                    {({ open }) => (
-                      <button
-                        onClick={() => open()}
-                        disabled={categories.length === 0}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-600 text-white rounded-lg transition-colors font-medium text-sm w-full sm:w-auto disabled:opacity-50"
-                      >
-                        <Upload size={16} />
-                        Bulk Upload
-                      </button>
-                    )}
-                  </CldUploadWidget>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                    {categories.length === 0 && <option value="dojo">dojo</option>}
+                  </select>
                 </div>
+                
+                <CldUploadWidget
+                  key={uploadCategory}
+                  uploadPreset="vishakahu_preset"
+                  onSuccess={handleCloudinaryUpload}
+                  options={{
+                    folder: `vishakahu-gallery/${uploadCategory}`,
+                    multiple: true,
+                    resourceType: 'image'
+                  }}
+                >
+                  {({ open }) => (
+                    <button
+                      onClick={() => open()}
+                      disabled={categories.length === 0}
+                      className="flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 bg-white hover:bg-neutral-200 text-black rounded-lg transition-colors font-medium text-sm active:scale-95 disabled:opacity-40"
+                    >
+                      <Upload size={16} />
+                      Upload Photos
+                    </button>
+                  )}
+                </CldUploadWidget>
               </div>
             </div>
 
             {/* Gallery Grid */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4">
-                  <h3 className="font-semibold text-white">Gallery Media ({filteredPhotos.length})</h3>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <h3 className="font-semibold text-white text-sm shrink-0">Photos ({filteredPhotos.length})</h3>
                   <select
                     value={galleryFilter}
                     onChange={(e) => setGalleryFilter(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 text-white text-xs rounded px-2 py-1.5 focus:outline-none"
+                    className="bg-neutral-950 border border-neutral-700 text-white text-xs rounded-lg px-2.5 py-2 focus:outline-none min-w-0"
                   >
-                    <option value="all">All Categories</option>
+                    <option value="all">All</option>
                     <option value="unlabeled">Unlabeled</option>
                     {categories.map(cat => (
                       <option key={cat.id} value={cat.name}>{cat.name}</option>
@@ -696,79 +737,140 @@ export default function AdminPage() {
                 </div>
                 <button
                   onClick={() => { fetchGalleryPhotos(); fetchCategories(); }}
-                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 min-h-[36px] px-3 text-xs text-neutral-500 hover:text-white transition-colors active:scale-95"
                 >
                   <RefreshCw size={12} className={galleryLoading ? 'animate-spin' : ''} />
-                  Refresh
+                  <span className="hidden sm:inline">Refresh</span>
                 </button>
               </div>
 
               {galleryLoading ? (
-                <div className="p-12 text-center text-slate-400">Loading gallery photos...</div>
+                <div className="p-12 text-center text-neutral-500">
+                  <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
+                  Loading photos...
+                </div>
               ) : filteredPhotos.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                   {filteredPhotos.map((p) => (
                     <div
                       key={p.id}
-                      className="group relative bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex flex-col"
+                      className="group relative bg-neutral-950 border border-neutral-800 rounded-lg overflow-hidden"
                     >
-                      <div className="aspect-square relative overflow-hidden bg-slate-900">
+                      <button
+                        type="button"
+                        className="w-full aspect-square relative overflow-hidden bg-neutral-900 text-left focus:outline-none"
+                        onClick={() => setActionSheetPhoto(p)}
+                      >
                         <img
                           src={p.secure_url ? p.secure_url.replace('/upload/', '/upload/w_400,q_auto,f_auto/') : ''}
                           alt={p.public_id || 'gallery image'}
                           loading="lazy"
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
-                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white/90 text-[10px] uppercase font-bold rounded">
+                        {/* Category badge */}
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-black/70 text-white/80 text-[10px] uppercase font-bold rounded">
                           {p.category || 'unlabeled'}
-                        </div>
-                      </div>
-
-                      <div className="p-2 flex flex-col gap-2 border-t border-slate-800 bg-slate-950">
-                        <select
-                          value={p.category || 'unlabeled'}
-                          onChange={(e) => handleChangePhotoCategory(p.id, e.target.value)}
-                          className="bg-slate-900 border border-slate-700 text-slate-300 text-[10px] rounded px-1 py-1 w-full focus:outline-none focus:border-red-500"
-                        >
-                          <option value="unlabeled">Unlabeled</option>
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.name}>{cat.name}</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={p.public_id || 'unknown'}>
-                            {p.public_id ? p.public_id.split('/').pop() : 'unknown'}
+                        </span>
+                        {/* Pin indicator */}
+                        {p.is_pinned && (
+                          <span className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center bg-white/90 rounded-full">
+                            <Pin size={10} className="text-black fill-black" />
                           </span>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleTogglePin(p.id, !!p.is_pinned)}
-                              className={`p-1 rounded transition-colors ${p.is_pinned ? 'text-amber-400 hover:text-amber-300 bg-amber-400/10 hover:bg-amber-400/20' : 'text-slate-500 hover:text-amber-400 hover:bg-slate-800'}`}
-                              title={p.is_pinned ? "Unpin photo" : "Pin to top (Max 5)"}
-                            >
-                              <Pin size={12} className={p.is_pinned ? "fill-amber-400" : ""} />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePhoto(p.id)}
-                              className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
-                              title="Delete photo"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                        )}
+                        {/* More icon overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <MoreVertical size={20} className="text-white/0 group-hover:text-white/80 transition-colors" />
                         </div>
-                      </div>
+                      </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-12 text-center text-slate-500">
-                  No gallery photos found matching this category.
+                <div className="p-12 text-center text-neutral-600">
+                  No photos found for this category.
                 </div>
               )}
             </div>
           </div>
         )}
       </main>
+
+      {/* ─── Gallery Action Sheet (Bottom Sheet Modal) ─── */}
+      {actionSheetPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setActionSheetPhoto(null)}
+        >
+          <div
+            className="w-full sm:max-w-sm bg-neutral-900 border-t sm:border border-neutral-700 rounded-t-2xl sm:rounded-2xl p-4 pb-6 sm:p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sheet header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-800 shrink-0">
+                  <img
+                    src={actionSheetPhoto.secure_url ? actionSheetPhoto.secure_url.replace('/upload/', '/upload/w_80,h_80,c_fill,q_auto,f_auto/') : ''}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-neutral-400 truncate">{actionSheetPhoto.public_id?.split('/').pop() || 'Photo'}</p>
+                  <p className="text-[11px] text-neutral-600">{actionSheetPhoto.category || 'unlabeled'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActionSheetPhoto(null)}
+                className="p-2 text-neutral-500 hover:text-white rounded-full active:scale-90"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Change Category */}
+            <div className="mb-3">
+              <label className="text-[11px] text-neutral-500 uppercase tracking-wider font-semibold mb-1.5 block">Change Category</label>
+              <select
+                value={actionSheetPhoto.category || 'unlabeled'}
+                onChange={(e) => handleChangePhotoCategory(actionSheetPhoto.id, e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-700 text-white text-sm rounded-lg px-3 py-3 focus:outline-none focus:border-neutral-500"
+              >
+                <option value="unlabeled">Unlabeled</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={() => handleTogglePin(actionSheetPhoto.id, !!actionSheetPhoto.is_pinned)}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors active:scale-[0.98] text-sm"
+              >
+                <Pin size={16} className={actionSheetPhoto.is_pinned ? "fill-white" : ""} />
+                {actionSheetPhoto.is_pinned ? 'Unpin from Top' : 'Pin to Top (Max 5)'}
+              </button>
+              <button
+                onClick={() => handleDeletePhoto(actionSheetPhoto.id)}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-lg transition-colors active:scale-[0.98] text-sm"
+              >
+                <Trash2 size={16} />
+                Delete Photo
+              </button>
+            </div>
+
+            {/* Cancel */}
+            <button
+              onClick={() => setActionSheetPhoto(null)}
+              className="w-full min-h-[48px] mt-3 flex items-center justify-center px-4 py-3 bg-neutral-950 hover:bg-neutral-800 text-neutral-400 rounded-lg transition-colors active:scale-[0.98] text-sm border border-neutral-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
