@@ -44,8 +44,84 @@ export default function AdminPage() {
   }, [uploadCategory]);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // In-app alert / confirm dialog popup state
+  const [modalDialog, setModalDialog] = useState<{
+    type: 'confirm' | 'alert';
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showConfirm = ({
+    title = 'Confirmation',
+    message,
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    isDestructive = false,
+    onConfirm,
+  }: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  }) => {
+    setModalDialog({
+      type: 'confirm',
+      title,
+      message,
+      confirmLabel,
+      cancelLabel,
+      isDestructive,
+      onConfirm: () => {
+        setModalDialog(null);
+        onConfirm();
+      },
+      onCancel: () => setModalDialog(null),
+    });
+  };
+
+  const showAlert = ({
+    title = 'Notice',
+    message,
+    buttonLabel = 'OK',
+  }: {
+    title?: string;
+    message: string;
+    buttonLabel?: string;
+  }) => {
+    setModalDialog({
+      type: 'alert',
+      title,
+      message,
+      confirmLabel: buttonLabel,
+      onConfirm: () => setModalDialog(null),
+    });
+  };
+
   // Gallery action sheet state
   const [actionSheetPhoto, setActionSheetPhoto] = useState<GalleryImage | null>(null);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (modalDialog) {
+          if (modalDialog.onCancel) modalDialog.onCancel();
+          setModalDialog(null);
+        } else if (actionSheetPhoto) {
+          setActionSheetPhoto(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalDialog, actionSheetPhoto]);
 
   // Auto-dismiss status messages
   useEffect(() => {
@@ -97,11 +173,19 @@ export default function AdminPage() {
 
   // Handle Logout
   const handleLogout = () => {
-    if (!confirm('Are you sure you want to lock the admin panel?')) return;
-    localStorage.removeItem('vishakahu_admin_session');
-    setIsAuthenticated(false);
-    setUsername('');
-    setPassword('');
+    showConfirm({
+      title: 'Lock Admin Panel',
+      message: 'Are you sure you want to lock the admin panel? You will need your password to log back in.',
+      confirmLabel: 'Lock',
+      cancelLabel: 'Cancel',
+      isDestructive: false,
+      onConfirm: () => {
+        localStorage.removeItem('vishakahu_admin_session');
+        setIsAuthenticated(false);
+        setUsername('');
+        setPassword('');
+      },
+    });
   };
 
   // Load registrations from Supabase DB
@@ -263,22 +347,45 @@ export default function AdminPage() {
 
   // Delete registration row
   async function handleDeleteRegistration(id: number) {
-    if (!confirm('Are you sure you want to delete this student registration?')) return;
-    try {
-      const { error } = await supabase.from('student_registrations').delete().eq('id', id);
-      if (error) {
-        alert('Delete failed: ' + error.message);
-      } else {
-        setRegistrations(prev => prev.filter(r => r.id !== id));
-      }
-    } catch (err) {
-      alert('Delete failed: ' + String(err));
-    }
+    showConfirm({
+      title: 'Delete Student Registration',
+      message: 'Are you sure you want to delete this student registration record? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('student_registrations').delete().eq('id', id);
+          if (error) {
+            showAlert({
+              title: 'Delete Failed',
+              message: error.message,
+            });
+            setStatusMsg({ type: 'error', text: `Delete failed: ${error.message}` });
+          } else {
+            setRegistrations(prev => prev.filter(r => r.id !== id));
+            setStatusMsg({ type: 'success', text: 'Student registration deleted.' });
+          }
+        } catch (err) {
+          showAlert({
+            title: 'Delete Failed',
+            message: String(err),
+          });
+          setStatusMsg({ type: 'error', text: `Delete failed: ${String(err)}` });
+        }
+      },
+    });
   }
 
   // Export registrations to CSV
   function exportCSV() {
-    if (registrations.length === 0) return alert('No registrations to export.');
+    if (registrations.length === 0) {
+      showAlert({
+        title: 'Export Registrations',
+        message: 'There are no student registrations available to export.',
+      });
+      return;
+    }
     const headers = ['ID', 'Name', 'Email', 'Phone', 'Date Registered'];
     const rows = registrations.map(r => [
       r.id,
@@ -328,21 +435,32 @@ export default function AdminPage() {
 
   // Delete photo from Supabase database
   async function handleDeletePhoto(id: string) {
-    if (!confirm(`Are you sure you want to delete this photo from the gallery?`)) return;
+    showConfirm({
+      title: 'Delete Photo',
+      message: 'Are you sure you want to delete this photo from the gallery? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('gallery_images').delete().eq('id', id);
+          
+          if (error) {
+            throw new Error(error.message);
+          }
 
-    try {
-      const { error } = await supabase.from('gallery_images').delete().eq('id', id);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setPhotos(prev => prev.filter(p => p.id !== id));
-      setStatusMsg({ type: 'success', text: `Deleted photo successfully.` });
-      setActionSheetPhoto(null);
-    } catch (err) {
-      alert('Delete failed: ' + String(err));
-    }
+          setPhotos(prev => prev.filter(p => p.id !== id));
+          setStatusMsg({ type: 'success', text: `Deleted photo successfully.` });
+          setActionSheetPhoto(null);
+        } catch (err) {
+          showAlert({
+            title: 'Delete Failed',
+            message: 'Delete failed: ' + String(err),
+          });
+          setStatusMsg({ type: 'error', text: `Delete failed: ${String(err)}` });
+        }
+      },
+    });
   }
 
   async function handleAddCategory() {
@@ -362,22 +480,29 @@ export default function AdminPage() {
   }
 
   async function handleDeleteCategory(categoryName: string) {
-    if (!confirm(`Delete category '${categoryName}'? All images in this category will be marked as unlabeled.`)) return;
-    
-    try {
-      // 1. Update existing images
-      await supabase.from('gallery_images').update({ category: 'unlabeled' }).eq('category', categoryName);
-      
-      // 2. Delete category
-      const { error } = await supabase.from('gallery_categories').delete().eq('name', categoryName);
-      if (error) throw new Error(error.message);
-      
-      setStatusMsg({ type: 'success', text: `Category '${categoryName}' deleted.` });
-      fetchCategories();
-      fetchGalleryPhotos();
-    } catch (err) {
-      setStatusMsg({ type: 'error', text: `Failed to delete category: ${String(err)}` });
-    }
+    showConfirm({
+      title: 'Delete Category',
+      message: `Delete category '${categoryName}'? All images in this category will be marked as unlabeled.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          // 1. Update existing images
+          await supabase.from('gallery_images').update({ category: 'unlabeled' }).eq('category', categoryName);
+          
+          // 2. Delete category
+          const { error } = await supabase.from('gallery_categories').delete().eq('name', categoryName);
+          if (error) throw new Error(error.message);
+          
+          setStatusMsg({ type: 'success', text: `Category '${categoryName}' deleted.` });
+          fetchCategories();
+          fetchGalleryPhotos();
+        } catch (err) {
+          setStatusMsg({ type: 'error', text: `Failed to delete category: ${String(err)}` });
+        }
+      },
+    });
   }
 
   async function handleChangePhotoCategory(id: string, newCategory: string) {
@@ -868,6 +993,83 @@ export default function AdminPage() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+      {/* ─── In-App Web Modal Dialog (Replaces native browser alert & confirm) ─── */}
+      {modalDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => {
+            if (modalDialog.type === 'confirm' && modalDialog.onCancel) {
+              modalDialog.onCancel();
+            } else {
+              setModalDialog(null);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-sm bg-neutral-900 border border-neutral-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl relative text-left space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top row with icon & close button */}
+            <div className="flex items-start justify-between">
+              <div className="w-10 h-10 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-white shrink-0">
+                {modalDialog.isDestructive ? (
+                  <Trash2 size={20} className="text-white" />
+                ) : (
+                  <AlertCircle size={20} className="text-white" />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (modalDialog.onCancel) modalDialog.onCancel();
+                  setModalDialog(null);
+                }}
+                className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Title and Message */}
+            <div>
+              <h3 className="text-base font-semibold text-white tracking-tight">
+                {modalDialog.title}
+              </h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mt-1">
+                {modalDialog.message}
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2.5 pt-1">
+              {modalDialog.type === 'confirm' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (modalDialog.onCancel) modalDialog.onCancel();
+                    setModalDialog(null);
+                  }}
+                  className="flex-1 min-h-[44px] px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-sm font-medium transition-colors active:scale-[0.98] border border-neutral-700/50"
+                >
+                  {modalDialog.cancelLabel || 'Cancel'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const cb = modalDialog.onConfirm;
+                  setModalDialog(null);
+                  cb();
+                }}
+                className="flex-1 min-h-[44px] px-4 py-2.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+              >
+                {modalDialog.confirmLabel || (modalDialog.type === 'confirm' ? 'Confirm' : 'OK')}
+              </button>
+            </div>
           </div>
         </div>
       )}
