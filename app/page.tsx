@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, StudentRegistration } from '../lib/supabase';
-import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, ShieldAlert, Plus, Pin, X, MoreVertical } from 'lucide-react';
+import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, ShieldAlert, Plus, Pin, X, MoreVertical, Eye, EyeOff } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
 interface GalleryImage {
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [authChecking, setAuthChecking] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -155,20 +156,32 @@ export default function AdminPage() {
     checkAuth();
   }, []);
 
-  // Handle Login
-  const handleLogin = (e: React.FormEvent) => {
+  // Handle Login via Secure Server Route
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
 
-    if (username.trim() === 'Vishakahu_academy' && password === 'vishakahukarateschool') {
-      localStorage.setItem('vishakahu_admin_session', 'true');
-      setIsAuthenticated(true);
-      setAuthError(null);
-    } else {
-      setAuthError('Invalid credentials. Please try again.');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        localStorage.setItem('vishakahu_admin_session', 'true');
+        setIsAuthenticated(true);
+        setAuthError(null);
+      } else {
+        setAuthError(data.error || 'Invalid credentials. Please try again.');
+      }
+    } catch (err: any) {
+      setAuthError('Unable to connect to authentication server.');
+    } finally {
+      setAuthLoading(false);
     }
-    setAuthLoading(false);
   };
 
   // Handle Logout
@@ -316,14 +329,25 @@ export default function AdminPage() {
               <label className="block text-xs uppercase tracking-wider text-neutral-500 font-semibold mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-white transition-colors text-sm"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 pr-11 text-white placeholder-neutral-600 focus:outline-none focus:border-white transition-colors text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors p-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button
