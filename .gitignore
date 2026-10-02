@@ -1,44 +1,73 @@
+# ==============================================================================
+# Vishakahu Admin Portal - Git Ignore Configuration
+# ==============================================================================
+
 # Dependencies
 /node_modules
 /.pnp
 .pnp.js
+.yarn/install-state.gz
 
-# Testing & Coverage
-/coverage
-
-# Next.js Build Output
+# Next.js & Build Output
 /.next/
 /out/
 /build
+/dist
+.turbo
 
-# Production & Local Environment Files
+# Environment Secrets (Strict catch-all: ignores all .env files except .env.example)
 .env
-.env.production
-.env*.local
-.env.development.local
-.env.test.local
-.env.production
-.env.production.local
+.env.*
 !.env.example
-.env.local
 
-# OS & IDE Files
-.DS_Store
-*.pem
-.idea/
-.vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Testing & Coverage
+/coverage
+*.lcov
+.nyc_output
 
-# Logs & Temporary Files
+# TypeScript Build Info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Logs & Debugging
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 *.log
 
-# TypeScript
-tsconfig.tsbuildinfo
+# Temporary, Cache & Diagnostic Dump Files
+*.tmp
+*.temp
+*temp*
+*scratch*
+*.sw?
+*~
+file_structure.txt
+*report*.md
+SECURITY_AUDIT_REPORT.md
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-workspace
+*.sublime-project
+
+# Security Credentials & Keys
+*.pem
+*.key
+*.cert
+*.crt

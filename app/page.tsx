@@ -1,7 +1,6 @@
 'use client';
-
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase, StudentRegistration } from '../lib/supabase';
+import type { StudentRegistration } from '../lib/supabase';
 import { Users, Image as ImageIcon, Trash2, Download, Upload, RefreshCw, CheckCircle, AlertCircle, Lock, LogOut, ShieldAlert, Plus, Pin, X, MoreVertical, Eye, EyeOff } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -132,23 +131,26 @@ export default function AdminPage() {
     }
   }, [statusMsg]);
 
-  // Check initial session on mount
+  // Check initial session on mount via secure server route
   useEffect(() => {
     async function checkAuth() {
       try {
-        const savedPasscodeSession = localStorage.getItem('vishakahu_admin_session');
-        if (savedPasscodeSession === 'true') {
-          setIsAuthenticated(true);
-          setAuthChecking(false);
-          return;
+        // Purge legacy insecure client-side session key if present
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('vishakahu_admin_session');
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        const res = await fetch('/api/auth/check');
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.authenticated) {
           setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
         }
       } catch (err) {
-        console.error("Auth check error:", err);
+        console.error("Server auth check error:", err);
+        setIsAuthenticated(false);
       } finally {
         setAuthChecking(false);
       }
@@ -168,10 +170,9 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        localStorage.setItem('vishakahu_admin_session', 'true');
         setIsAuthenticated(true);
         setAuthError(null);
       } else {
@@ -184,7 +185,7 @@ export default function AdminPage() {
     }
   };
 
-  // Handle Logout
+  // Handle Logout via Secure Server Route
   const handleLogout = () => {
     showConfirm({
       title: 'Lock Admin Panel',
@@ -192,30 +193,31 @@ export default function AdminPage() {
       confirmLabel: 'Lock',
       cancelLabel: 'Cancel',
       isDestructive: false,
-      onConfirm: () => {
-        localStorage.removeItem('vishakahu_admin_session');
-        setIsAuthenticated(false);
-        setUsername('');
-        setPassword('');
+      onConfirm: async () => {
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (err) {
+          console.error("Logout error:", err);
+        } finally {
+          setIsAuthenticated(false);
+          setUsername('');
+          setPassword('');
+        }
       },
     });
   };
 
-  // Load registrations from Supabase DB
+  // Load registrations via secure server route
   async function fetchRegistrations() {
     setRegLoading(true);
     setRegError(null);
     try {
-      const { data, error } = await supabase
-        .from('student_registrations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn("DB fetch warning:", error.message);
-        setRegError(error.message);
+      const res = await fetch('/api/admin/registrations');
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.data) {
+        setRegistrations(json.data);
       } else {
-        setRegistrations(data || []);
+        setRegError(json.error || 'Failed to load registrations.');
       }
     } catch (err: any) {
       console.error("Fetch error:", err);
@@ -225,20 +227,14 @@ export default function AdminPage() {
     }
   }
 
-  // Load gallery photos from Supabase DB
+  // Load gallery photos via secure server route
   async function fetchGalleryPhotos() {
     setGalleryLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('gallery_images')
-        .select('*')
-        .order('is_pinned', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn("Gallery fetch warning:", error.message);
-      } else {
-        setPhotos(data || []);
+      const res = await fetch('/api/admin/gallery');
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.data) {
+        setPhotos(json.data);
       }
     } catch (err) {
       console.error("Gallery fetch error:", err);
@@ -247,16 +243,15 @@ export default function AdminPage() {
     }
   }
 
+  // Load categories via secure server route
   async function fetchCategories() {
     try {
-      const { data, error } = await supabase
-        .from('gallery_categories')
-        .select('*')
-        .order('created_at', { ascending: true });
-      if (!error && data) {
-        setCategories(data);
-        if (data.length > 0 && (!uploadCategory || !data.find(c => c.name === uploadCategory))) {
-          setUploadCategory(data[0].name);
+      const res = await fetch('/api/admin/categories');
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.data) {
+        setCategories(json.data);
+        if (json.data.length > 0 && (!uploadCategory || !json.data.find((c: any) => c.name === uploadCategory))) {
+          setUploadCategory(json.data[0].name);
         }
       }
     } catch (err) {
@@ -369,7 +364,7 @@ export default function AdminPage() {
     );
   }
 
-  // Delete registration row
+  // Delete registration row via secure server route
   async function handleDeleteRegistration(id: number) {
     showConfirm({
       title: 'Delete Student Registration',
@@ -379,29 +374,30 @@ export default function AdminPage() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const { error } = await supabase.from('student_registrations').delete().eq('id', id);
-          if (error) {
-            showAlert({
-              title: 'Delete Failed',
-              message: error.message,
-            });
-            setStatusMsg({ type: 'error', text: `Delete failed: ${error.message}` });
-          } else {
+          const res = await fetch(`/api/admin/registrations?id=${id}`, { method: 'DELETE' });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json.success) {
             setRegistrations(prev => prev.filter(r => r.id !== id));
             setStatusMsg({ type: 'success', text: 'Student registration deleted.' });
+          } else {
+            showAlert({
+              title: 'Delete Failed',
+              message: json.error || 'Failed to delete registration record.',
+            });
+            setStatusMsg({ type: 'error', text: `Delete failed: ${json.error || 'Failed to delete'}` });
           }
-        } catch (err) {
+        } catch (err: any) {
           showAlert({
             title: 'Delete Failed',
-            message: String(err),
+            message: String(err?.message || err),
           });
-          setStatusMsg({ type: 'error', text: `Delete failed: ${String(err)}` });
+          setStatusMsg({ type: 'error', text: `Delete failed: ${String(err?.message || err)}` });
         }
       },
     });
   }
 
-  // Export registrations to CSV
+  // Export registrations to CSV with formula injection defense
   function exportCSV() {
     if (registrations.length === 0) {
       showAlert({
@@ -410,12 +406,23 @@ export default function AdminPage() {
       });
       return;
     }
+
+    // Sanitize cell values against spreadsheet formula injection (=, +, -, @)
+    const sanitizeCsvCell = (val: unknown) => {
+      const str = String(val ?? '');
+      const escaped = str.replace(/"/g, '""');
+      if (/^[=\+\-@\t\r]/.test(escaped)) {
+        return `"'${escaped}"`;
+      }
+      return `"${escaped}"`;
+    };
+
     const headers = ['ID', 'Name', 'Email', 'Phone', 'Date Registered'];
     const rows = registrations.map(r => [
       r.id,
-      `"${r.name.replace(/"/g, '""')}"`,
-      `"${r.email.replace(/"/g, '""')}"`,
-      `"${r.phone.replace(/"/g, '""')}"`,
+      sanitizeCsvCell(r.name),
+      sanitizeCsvCell(r.email),
+      sanitizeCsvCell(r.phone),
       `"${new Date(r.created_at).toLocaleString()}"`
     ]);
 
@@ -428,36 +435,41 @@ export default function AdminPage() {
     link.click();
   }
 
-  // Handle successful upload from Cloudinary Widget
+  // Handle successful upload from Cloudinary Widget via secure server route
   async function handleCloudinaryUpload(result: any) {
     if (result.event === 'success') {
       const info = result.info;
       
       try {
-        const { error } = await supabase.from('gallery_images').insert({
-          public_id: info.public_id,
-          secure_url: info.secure_url,
-          category: uploadCategoryRef.current
+        const res = await fetch('/api/admin/gallery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            public_id: info.public_id,
+            secure_url: info.secure_url,
+            category: uploadCategoryRef.current,
+          }),
         });
 
-        if (error) {
-          throw new Error(error.message);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.error) {
+          throw new Error(json.error || 'Failed to save image.');
         }
 
         setStatusMsg({
           type: 'success',
-          text: `Uploaded to ${uploadCategoryRef.current}!`
+          text: `Uploaded to ${uploadCategoryRef.current}!`,
         });
         
         // Refresh gallery
         fetchGalleryPhotos();
-      } catch (err) {
-        setStatusMsg({ type: 'error', text: `Database error: ${String(err)}` });
+      } catch (err: any) {
+        setStatusMsg({ type: 'error', text: `Upload save error: ${err?.message || String(err)}` });
       }
     }
   }
 
-  // Delete photo from Supabase database
+  // Delete photo via secure server route
   async function handleDeletePhoto(id: string) {
     showConfirm({
       title: 'Delete Photo',
@@ -467,42 +479,53 @@ export default function AdminPage() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const { error } = await supabase.from('gallery_images').delete().eq('id', id);
-          
-          if (error) {
-            throw new Error(error.message);
+          const res = await fetch(`/api/admin/gallery?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+          const json = await res.json().catch(() => ({}));
+
+          if (!res.ok || json.error) {
+            throw new Error(json.error || 'Failed to delete image.');
           }
 
           setPhotos(prev => prev.filter(p => p.id !== id));
           setStatusMsg({ type: 'success', text: `Deleted photo successfully.` });
           setActionSheetPhoto(null);
-        } catch (err) {
+        } catch (err: any) {
           showAlert({
             title: 'Delete Failed',
-            message: 'Delete failed: ' + String(err),
+            message: 'Delete failed: ' + (err?.message || String(err)),
           });
-          setStatusMsg({ type: 'error', text: `Delete failed: ${String(err)}` });
+          setStatusMsg({ type: 'error', text: `Delete failed: ${err?.message || String(err)}` });
         }
       },
     });
   }
 
+  // Add new category via secure server route
   async function handleAddCategory() {
     if (!newCategoryName.trim()) return;
     const cleanName = newCategoryName.trim().toLowerCase();
     
     try {
-      const { error } = await supabase.from('gallery_categories').insert({ name: cleanName });
-      if (error) throw new Error(error.message);
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName }),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Failed to add category.');
+      }
       
       setNewCategoryName('');
       setStatusMsg({ type: 'success', text: `Category '${cleanName}' added.` });
       fetchCategories();
-    } catch (err) {
-      setStatusMsg({ type: 'error', text: `Failed to add category: ${String(err)}` });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: `Failed to add category: ${err?.message || String(err)}` });
     }
   }
 
+  // Delete category via secure server route
   async function handleDeleteCategory(categoryName: string) {
     showConfirm({
       title: 'Delete Category',
@@ -512,36 +535,48 @@ export default function AdminPage() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          // 1. Update existing images
-          await supabase.from('gallery_images').update({ category: 'unlabeled' }).eq('category', categoryName);
-          
-          // 2. Delete category
-          const { error } = await supabase.from('gallery_categories').delete().eq('name', categoryName);
-          if (error) throw new Error(error.message);
+          const res = await fetch(`/api/admin/categories?name=${encodeURIComponent(categoryName)}`, {
+            method: 'DELETE',
+          });
+          const json = await res.json().catch(() => ({}));
+
+          if (!res.ok || json.error) {
+            throw new Error(json.error || 'Failed to delete category.');
+          }
           
           setStatusMsg({ type: 'success', text: `Category '${categoryName}' deleted.` });
           fetchCategories();
           fetchGalleryPhotos();
-        } catch (err) {
-          setStatusMsg({ type: 'error', text: `Failed to delete category: ${String(err)}` });
+        } catch (err: any) {
+          setStatusMsg({ type: 'error', text: `Failed to delete category: ${err?.message || String(err)}` });
         }
       },
     });
   }
 
+  // Update photo category via secure server route
   async function handleChangePhotoCategory(id: string, newCategory: string) {
     try {
-      const { error } = await supabase.from('gallery_images').update({ category: newCategory }).eq('id', id);
-      if (error) throw new Error(error.message);
+      const res = await fetch('/api/admin/gallery', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, category: newCategory }),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Failed to update photo category.');
+      }
       
       setPhotos(prev => prev.map(p => p.id === id ? { ...p, category: newCategory } : p));
       setStatusMsg({ type: 'success', text: `Photo category updated.` });
       setActionSheetPhoto(null);
-    } catch (err) {
-      setStatusMsg({ type: 'error', text: `Failed to update photo category: ${String(err)}` });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: `Failed to update photo category: ${err?.message || String(err)}` });
     }
   }
 
+  // Toggle pin status via secure server route
   async function handleTogglePin(id: string, currentStatus: boolean) {
     if (!currentStatus) {
       // Trying to pin - check limit
@@ -553,14 +588,22 @@ export default function AdminPage() {
     }
 
     try {
-      const { error } = await supabase.from('gallery_images').update({ is_pinned: !currentStatus }).eq('id', id);
-      if (error) throw new Error(error.message);
+      const res = await fetch('/api/admin/gallery', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_pinned: !currentStatus }),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Failed to update pin status.');
+      }
       
       setStatusMsg({ type: 'success', text: `Photo ${!currentStatus ? 'pinned to top' : 'unpinned'}.` });
       setActionSheetPhoto(null);
       fetchGalleryPhotos();
-    } catch (err) {
-      setStatusMsg({ type: 'error', text: `Failed to update pin status: ${String(err)}` });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: `Failed to update pin status: ${err?.message || String(err)}` });
     }
   }
 
