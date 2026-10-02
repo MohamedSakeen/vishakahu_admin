@@ -212,7 +212,10 @@ export default function AdminPage() {
     setRegLoading(true);
     setRegError(null);
     try {
-      const res = await fetch('/api/admin/registrations');
+      const res = await fetch(`/api/admin/registrations?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.data) {
         setRegistrations(json.data);
@@ -231,7 +234,10 @@ export default function AdminPage() {
   async function fetchGalleryPhotos() {
     setGalleryLoading(true);
     try {
-      const res = await fetch('/api/admin/gallery');
+      const res = await fetch(`/api/admin/gallery?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.data) {
         setPhotos(json.data);
@@ -246,7 +252,10 @@ export default function AdminPage() {
   // Load categories via secure server route
   async function fetchCategories() {
     try {
-      const res = await fetch('/api/admin/categories');
+      const res = await fetch(`/api/admin/categories?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.data) {
         setCategories(json.data);
@@ -259,12 +268,36 @@ export default function AdminPage() {
     }
   }
 
+  // Initial load on authentication
   useEffect(() => {
     if (isAuthenticated) {
       fetchRegistrations();
       fetchGalleryPhotos();
       fetchCategories();
     }
+  }, [isAuthenticated]);
+
+  // Real-time synchronization: Auto-refresh when tab gains focus & periodic polling
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Refresh immediately when returning to tab from enrollment / other pages
+    const handleFocus = () => {
+      fetchRegistrations();
+      fetchGalleryPhotos();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    // Live background polling every 10 seconds to catch new student registrations
+    const pollInterval = setInterval(() => {
+      fetchRegistrations();
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(pollInterval);
+    };
   }, [isAuthenticated]);
 
   // Loading state during auth check
@@ -437,35 +470,62 @@ export default function AdminPage() {
 
   // Handle successful upload from Cloudinary Widget via secure server route
   async function handleCloudinaryUpload(result: any) {
-    if (result.event === 'success') {
-      const info = result.info;
-      
-      try {
-        const res = await fetch('/api/admin/gallery', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            public_id: info.public_id,
-            secure_url: info.secure_url,
-            category: uploadCategoryRef.current,
-          }),
-        });
+    try {
+      console.log('[Cloudinary Widget Event]:', result);
+      // In next-cloudinary, result may be { event: 'success', info: { ... } } or info directly
+      const info = (result && typeof result === 'object' && result.info && typeof result.info === 'object')
+        ? result.info
+        : (result && typeof result === 'object' ? result : null);
 
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json.error) {
-          throw new Error(json.error || 'Failed to save image.');
+      const public_id = info?.public_id;
+      const secure_url = info?.secure_url || info?.url;
+
+      if (!public_id || !secure_url) {
+        // Event might be a non-upload lifecycle event (e.g. queue start/close)
+        if (result?.event && result.event !== 'success') {
+          return;
         }
-
-        setStatusMsg({
-          type: 'success',
-          text: `Uploaded to ${uploadCategoryRef.current}!`,
-        });
-        
-        // Refresh gallery
-        fetchGalleryPhotos();
-      } catch (err: any) {
-        setStatusMsg({ type: 'error', text: `Upload save error: ${err?.message || String(err)}` });
+        console.warn('[Cloudinary Widget] Missing public_id or secure_url in upload result:', result);
+        return;
       }
+
+      const targetCategory = uploadCategoryRef.current || 'dojo';
+
+      const res = await fetch('/api/admin/gallery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          public_id,
+          secure_url,
+          category: targetCategory,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Failed to save image to database.');
+      }
+
+      setStatusMsg({
+        type: 'success',
+        text: `Uploaded photo to '${targetCategory}' successfully!`,
+      });
+
+      // Optimistically append the new photo to state immediately so it displays instantly
+      if (json.data) {
+        setPhotos(prev => [json.data, ...prev.filter(p => p.id !== json.data.id)]);
+      }
+
+      // If current filter is hiding the newly uploaded category, switch filter to show it
+      if (galleryFilter !== 'all' && galleryFilter !== targetCategory) {
+        setGalleryFilter(targetCategory);
+      }
+
+      // Sync full list from server
+      fetchGalleryPhotos();
+    } catch (err: any) {
+      console.error('[Cloudinary Upload Error]:', err);
+      setStatusMsg({ type: 'error', text: `Upload save error: ${err?.message || String(err)}` });
     }
   }
 

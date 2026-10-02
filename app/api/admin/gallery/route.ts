@@ -3,6 +3,15 @@ import { cookies } from 'next/headers';
 import { verifySessionToken, COOKIE_NAME } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
+
 async function requireAdminAuth() {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -13,7 +22,7 @@ async function requireAdminAuth() {
 export async function GET() {
   const auth = await requireAdminAuth();
   if (!auth.valid) {
-    return NextResponse.json({ error: 'Unauthorized access.' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized access.' }, { status: 401, headers: NO_CACHE_HEADERS });
   }
 
   try {
@@ -25,12 +34,12 @@ export async function GET() {
 
     if (error) {
       console.error('[Admin DB Error] Failed to fetch gallery photos:', error.message);
-      return NextResponse.json({ error: 'Database query failed.' }, { status: 500 });
+      return NextResponse.json({ error: 'Database query failed.' }, { status: 500, headers: NO_CACHE_HEADERS });
     }
 
-    return NextResponse.json({ data: data || [] });
+    return NextResponse.json({ data: data || [] }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Server error fetching gallery.' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error fetching gallery.' }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }
 
